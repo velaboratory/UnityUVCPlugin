@@ -1,3 +1,16 @@
+UnityUVCPlugin
+=========
+
+Based on the awesome libuvc integration of [saki4510t](https://github.com/saki4510t/UVCCamera).  It is also inspired by the [USB Camera for Android](https://assetstore.unity.com/packages/tools/integration/usb-camera-for-unity-android-151744) Unity asset. A special thanks to [Fat-AAR](https://github.com/kezong/fat-aar-android) for making it possible to embed dependencies...otherwise trying to build cobble together libraries for a plugin is horrible.
+
+This is a library to bring UVC Camera data into a Unity3D Android Project.  Previous approaches have used GLES 2.0 to directly write a native texture and use it in Unity.  While this is a good approach, it is more convenient to work with the data in Unity & OpenCV Unity.  So, this focuses on how to simply get the frame data. It uses a similar approach of GLES 2.0 as a surface texture for the camera, retrieving the data from the surface texture and copying it to a Unity3D buffer for further processing. 
+
+There are probably better ways to do this, e.g., passing the buffer pointer directly from Unity to avoid that copy, or providing the option for passing a native texture from Unity (though this has the same problem of forcing Unity and the Plugin to use the same native rendering for this to work). 
+
+Note that this is a minimally viable product at the moment.  A few things are still necessary (permissions, manifest updates), as will be described in the Unity counterpart to this library, when I get around to making it.  
+
+Old Stuff below.  I built directly on UVCCamera.   
+
 UVCCamera
 =========
 
