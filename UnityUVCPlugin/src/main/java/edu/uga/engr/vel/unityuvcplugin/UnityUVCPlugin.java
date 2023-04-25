@@ -21,6 +21,9 @@ import java.util.concurrent.locks.ReentrantLock;
 public class UnityUVCPlugin {
     UVCCamera cam;
 
+    int width;
+    int height;
+    int fps;
     int[][] textures = {{1}};
     int[] textureIds = {0};
 
@@ -72,8 +75,10 @@ public class UnityUVCPlugin {
         return _unityActivity;
     }
 
-    public boolean CreateUSBCamera(){
-
+    public boolean CreateUSBCamera(int width, int height, int fps){
+        this.width = width;
+        this.height = height;
+        this.fps = fps;
         GLES20.glGenTextures(1, textures[0], 0);
         textureIds[0] = textures[0][0];
         GLES20.glActiveTexture(GLES20.GL_TEXTURE0);
@@ -152,11 +157,11 @@ public class UnityUVCPlugin {
             cam.open(ctrlBlock);
 
             try {
-                cam.setPreviewSize(UVCCamera.DEFAULT_PREVIEW_WIDTH, UVCCamera.DEFAULT_PREVIEW_HEIGHT, UVCCamera.FRAME_FORMAT_MJPEG);
+                cam.setPreviewSize(width, height, UVCCamera.FRAME_FORMAT_MJPEG);
             } catch (final IllegalArgumentException e) {
                 // fallback to YUV mode
                 try {
-                    cam.setPreviewSize(UVCCamera.DEFAULT_PREVIEW_WIDTH, UVCCamera.DEFAULT_PREVIEW_HEIGHT, 1, 60, UVCCamera.FRAME_FORMAT_YUYV,1);
+                    cam.setPreviewSize(width, height, 1, fps, UVCCamera.FRAME_FORMAT_YUYV,1);
                 } catch (final IllegalArgumentException e1) {
                     cam.destroy();
                     return;
