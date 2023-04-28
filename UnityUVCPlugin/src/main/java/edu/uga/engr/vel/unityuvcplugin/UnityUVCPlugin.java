@@ -44,6 +44,7 @@ public class UnityUVCPlugin {
 
     private byte[] frameData = new byte[0];
     private byte[] jpegData = new byte[0];
+    private int jpegLen = 0;
     public boolean hasFrameData = false;
 
     boolean callUnity(String gameObjectName, String  function, String args){
@@ -119,10 +120,20 @@ public class UnityUVCPlugin {
         if(jpegData.length  < width*height*3){
             jpegData = new byte[width*height*3];
         }
-        int len = getFrame(frameData,jpegData);
-        callUnity("Main Camera","fromPlugin",""+len);
+        jpegLen = getFrame(frameData,jpegData);
+
         return frameData;
     }
+
+    public byte[] GetJpegData(){
+        return jpegData;
+    }
+    public int GetJpegLen(){
+        return jpegLen;
+    }
+
+
+
 
     private native int openCamera(  int vendorId,
                                      int productId,
