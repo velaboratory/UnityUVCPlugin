@@ -5,6 +5,8 @@ import android.graphics.SurfaceTexture;
 import android.hardware.usb.UsbDevice;
 import android.opengl.GLES20;
 import android.os.Handler;
+import android.text.TextUtils;
+import android.util.Log;
 import android.view.Surface;
 import android.widget.Toast;
 
@@ -19,25 +21,29 @@ import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReentrantLock;
 
 public class UnityUVCPlugin {
+
+
+    static {
+            System.loadLibrary("jpeg-turbo1500");
+            System.loadLibrary("usb100");
+            System.loadLibrary("uvc");
+            System.loadLibrary("UVCCamera");
+    }
+
     UVCCamera cam;
 
     int width;
     int height;
     int fps;
-    int[][] textures = {{1}};
-    int[] textureIds = {0};
-
-    public SurfaceTexture mSurfaceTexture;
-    public Surface mPreviewSurfaces;
     Handler handler = new Handler();
 
-    SurfaceTexture texture;
+
     Lock l = new ReentrantLock();
     private USBMonitor mUSBMonitor;
     public static Activity _unityActivity;
 
     private byte[] frameData = new byte[0];
-    private byte[] frameData2 = new byte[0];
+    private byte[] jpegData = new byte[0];
     public boolean hasFrameData = false;
 
     boolean callUnity(String gameObjectName, String  function, String args){
@@ -76,15 +82,13 @@ public class UnityUVCPlugin {
     }
 
     public boolean CreateUSBCamera(int width, int height, int fps){
+
+
+
         this.width = width;
         this.height = height;
         this.fps = fps;
-        GLES20.glGenTextures(1, textures[0], 0);
-        textureIds[0] = textures[0][0];
-        GLES20.glActiveTexture(GLES20.GL_TEXTURE0);
 
-        mSurfaceTexture = new SurfaceTexture(textureIds[0]);
-        mPreviewSurfaces = new Surface(mSurfaceTexture);
 
         mUSBMonitor = new USBMonitor(getActivity(), mOnDeviceConnectListener);
         mUSBMonitor.register();
@@ -108,73 +112,69 @@ public class UnityUVCPlugin {
     }
 
     public byte[] GetFrameData(){
-        if(!hasFrameData){
-            return null;
-        }
-        l.lock();
-        try{
-            if(frameData.length != frameData2.length){
-                frameData2 = new byte[frameData.length];
-            }
-            System.arraycopy(frameData,0,frameData2,0,frameData.length);
-            hasFrameData = false;
-        }
-        finally{
-            l.unlock();
-        }
-        return frameData;
 
+        if(frameData.length  < width*height*3){
+            frameData = new byte[width*height*3];
+        }
+        if(jpegData.length  < width*height*3){
+            jpegData = new byte[width*height*3];
+        }
+        int len = getFrame(frameData,jpegData);
+        callUnity("Main Camera","fromPlugin",""+len);
+        return frameData;
     }
 
-    private final IFrameCallback mIFrameCallback = new IFrameCallback() {
-        @Override
-        public void onFrame(final ByteBuffer frame) {
+    private native int openCamera(  int vendorId,
+                                     int productId,
+                                     int fileDescriptor,
+                                     int busNum,
+                                     int devAddr,
+                                     String usbfs
+                                     );
+    private native int startCamera(int width,
+                                           int height,
+                                           int min_fps,
+                                           int max_fps,
+                                           int mode,
+                                           float bandwidth);
 
+    private native int getFrame(byte[] frame_bytes, byte[] jpeg_bytes);
 
-
-            l.lock();
-            try {
-                int len = frame.capacity();
-                if(len != frameData.length) {
-                    frameData = new byte[len];
-                }
-                frame.get(frameData);
-                hasFrameData = true;
-            } finally {
-                l.unlock();
-            }
-
+    private final String getUSBFSName(final USBMonitor.UsbControlBlock ctrlBlock) {
+        String result = null;
+        final String name = ctrlBlock.getDeviceName();
+        final String[] v = !TextUtils.isEmpty(name) ? name.split("/") : null;
+        if ((v != null) && (v.length > 2)) {
+            final StringBuilder sb = new StringBuilder(v[0]);
+            for (int i = 1; i < v.length - 2; i++)
+                sb.append("/").append(v[i]);
+            result = sb.toString();
         }
-    };
+
+        return result;
+    }
 
     private final USBMonitor.OnDeviceConnectListener mOnDeviceConnectListener = new USBMonitor.OnDeviceConnectListener()
     {
         public void onConnect(final UsbDevice device, final USBMonitor.UsbControlBlock ctrlBlock, final boolean createNew) {
 
-            callUnity("Main Camera","fromPlugin","here3");
+            int res = openCamera(ctrlBlock.getVenderId(),
+                    ctrlBlock.getProductId(),
+                    ctrlBlock.getFileDescriptor(),
+                    ctrlBlock.getBusNum(),
+                    ctrlBlock.getDevNum(),
+                    getUSBFSName(ctrlBlock));
+            callUnity("Main Camera","fromPlugin",getUSBFSName(ctrlBlock)+res);
 
-            cam = new UVCCamera();
-            cam.open(ctrlBlock);
+            res = startCamera(width, height, 1, fps, 0, 1.0f);
+            callUnity("Main Camera","fromPlugin","here4"+res);
 
-            try {
-                cam.setPreviewSize(width, height, UVCCamera.FRAME_FORMAT_MJPEG);
-            } catch (final IllegalArgumentException e) {
-                // fallback to YUV mode
-                try {
-                    cam.setPreviewSize(width, height, 1, fps, UVCCamera.FRAME_FORMAT_YUYV,1);
-                } catch (final IllegalArgumentException e1) {
-                    cam.destroy();
-                    return;
-                }
-            }
-
-            cam.setFrameCallback(mIFrameCallback, UVCCamera.PIXEL_FORMAT_RGB565/*UVCCamera.PIXEL_FORMAT_NV21*/);
+            //cam.setFrameCallback(mIFrameCallback, UVCCamera.PIXEL_FORMAT_RAW/*UVCCamera.PIXEL_FORMAT_NV21*/);
             handler.postDelayed(new Runnable() {
                 @Override
                 public void run() {
-                    cam.setPreviewTexture(mSurfaceTexture);
-                    cam.startPreview();
-                    callUnity("Main Camera","fromPlugin","here4");
+
+
                 }
             }, 2000);
 
