@@ -8,18 +8,6 @@
       <module fileurl="file://$PROJECT_DIR$/.idea/modules/UnityUVCPlugin/UVCCamera.UnityUVCPlugin.main.iml" filepath="$PROJECT_DIR$/.idea/modules/UnityUVCPlugin/UVCCamera.UnityUVCPlugin.main.iml" />
       <module fileurl="file://$PROJECT_DIR$/.idea/modules/UnityUVCPlugin/UVCCamera.UnityUVCPlugin.unitTest.iml" filepath="$PROJECT_DIR$/.idea/modules/UnityUVCPlugin/UVCCamera.UnityUVCPlugin.unitTest.iml" />
       <module fileurl="file://$PROJECT_DIR$/.idea/modules/common-2.12.4/UVCCamera.common-2.12.4.iml" filepath="$PROJECT_DIR$/.idea/modules/common-2.12.4/UVCCamera.common-2.12.4.iml" />
-      <module fileurl="file://$PROJECT_DIR$/.idea/modules/libuvccamera/UVCCamera.libuvccamera.iml" filepath="$PROJECT_DIR$/.idea/modules/libuvccamera/UVCCamera.libuvccamera.iml" />
-      <module fileurl="file://$PROJECT_DIR$/.idea/modules/libuvccamera/UVCCamera.libuvccamera.androidTest.iml" filepath="$PROJECT_DIR$/.idea/modules/libuvccamera/UVCCamera.libuvccamera.androidTest.iml" />
-      <module fileurl="file://$PROJECT_DIR$/.idea/modules/libuvccamera/UVCCamera.libuvccamera.main.iml" filepath="$PROJECT_DIR$/.idea/modules/libuvccamera/UVCCamera.libuvccamera.main.iml" />
-      <module fileurl="file://$PROJECT_DIR$/.idea/modules/libuvccamera/UVCCamera.libuvccamera.unitTest.iml" filepath="$PROJECT_DIR$/.idea/modules/libuvccamera/UVCCamera.libuvccamera.unitTest.iml" />
-      <module fileurl="file://$PROJECT_DIR$/.idea/modules/usbCameraCommon/UVCCamera.usbCameraCommon.iml" filepath="$PROJECT_DIR$/.idea/modules/usbCameraCommon/UVCCamera.usbCameraCommon.iml" />
-      <module fileurl="file://$PROJECT_DIR$/.idea/modules/usbCameraCommon/UVCCamera.usbCameraCommon.androidTest.iml" filepath="$PROJECT_DIR$/.idea/modules/usbCameraCommon/UVCCamera.usbCameraCommon.androidTest.iml" />
-      <module fileurl="file://$PROJECT_DIR$/.idea/modules/usbCameraCommon/UVCCamera.usbCameraCommon.main.iml" filepath="$PROJECT_DIR$/.idea/modules/usbCameraCommon/UVCCamera.usbCameraCommon.main.iml" />
-      <module fileurl="file://$PROJECT_DIR$/.idea/modules/usbCameraCommon/UVCCamera.usbCameraCommon.unitTest.iml" filepath="$PROJECT_DIR$/.idea/modules/usbCameraCommon/UVCCamera.usbCameraCommon.unitTest.iml" />
-      <module fileurl="file://$PROJECT_DIR$/.idea/modules/usbCameraTest/UVCCamera.usbCameraTest.iml" filepath="$PROJECT_DIR$/.idea/modules/usbCameraTest/UVCCamera.usbCameraTest.iml" />
-      <module fileurl="file://$PROJECT_DIR$/.idea/modules/usbCameraTest/UVCCamera.usbCameraTest.androidTest.iml" filepath="$PROJECT_DIR$/.idea/modules/usbCameraTest/UVCCamera.usbCameraTest.androidTest.iml" />
-      <module fileurl="file://$PROJECT_DIR$/.idea/modules/usbCameraTest/UVCCamera.usbCameraTest.main.iml" filepath="$PROJECT_DIR$/.idea/modules/usbCameraTest/UVCCamera.usbCameraTest.main.iml" />
-      <module fileurl="file://$PROJECT_DIR$/.idea/modules/usbCameraTest/UVCCamera.usbCameraTest.unitTest.iml" filepath="$PROJECT_DIR$/.idea/modules/usbCameraTest/UVCCamera.usbCameraTest.unitTest.iml" />
     </modules>
   </component>
 </project>

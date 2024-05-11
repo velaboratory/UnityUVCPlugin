@@ -93,7 +93,7 @@ public class UnityUVCPlugin {
 
         mUSBMonitor = new USBMonitor(getActivity(), mOnDeviceConnectListener);
         mUSBMonitor.register();
-        //callUnity("Main Camera","fromPlugin","here");
+        callUnity("USBCameraController","fromPlugin","Camera Created");
         return true;
     }
 
@@ -105,9 +105,9 @@ public class UnityUVCPlugin {
         @Override
         public void run() {
             if(mUSBMonitor.requestPermission(device)){
-                //callUnity("Main Camera","fromPlugin","request device failed");
+                callUnity("USBCameraController","fromPlugin","request device failed");
             }else{
-                //callUnity("Main Camera","fromPlugin","request device succeeded");
+                callUnity("USBCameraController","fromPlugin","request device succeeded");
             }
         }
     }
@@ -125,6 +125,20 @@ public class UnityUVCPlugin {
         return frameData;
     }
 
+    public int SetExposure(int value){
+        setExposure(value);
+        return 0;
+    }
+
+    public int SetGain(int value){
+        setGain(value);
+        return 0;
+    }
+
+    public int SetAutoExposure(int value){
+        setAutoExposure(value);
+        return 0;
+    }
     public byte[] GetJpegData(){
         return jpegData;
     }
@@ -133,8 +147,9 @@ public class UnityUVCPlugin {
     }
 
 
-
-
+    private native int setExposure (int value);
+    private native int setGain (int value);
+    private native int setAutoExposure (int value);
     private native int openCamera(  int vendorId,
                                      int productId,
                                      int fileDescriptor,
@@ -169,25 +184,26 @@ public class UnityUVCPlugin {
     {
         public void onConnect(final UsbDevice device, final USBMonitor.UsbControlBlock ctrlBlock, final boolean createNew) {
 
+            callUnity("USBCameraController","fromPlugin","Camera Connected");
             int res = openCamera(ctrlBlock.getVenderId(),
                     ctrlBlock.getProductId(),
                     ctrlBlock.getFileDescriptor(),
                     ctrlBlock.getBusNum(),
                     ctrlBlock.getDevNum(),
                     getUSBFSName(ctrlBlock));
-            callUnity("Main Camera","fromPlugin",getUSBFSName(ctrlBlock)+res);
+            callUnity("USBCameraController","fromPlugin",getUSBFSName(ctrlBlock)+res);
 
             res = startCamera(width, height, 1, fps, 0, 1.0f);
-            callUnity("Main Camera","fromPlugin","here4"+res);
+            callUnity("USBCameraController","fromPlugin","Camera started: "+res);
 
             //cam.setFrameCallback(mIFrameCallback, UVCCamera.PIXEL_FORMAT_RAW/*UVCCamera.PIXEL_FORMAT_NV21*/);
-            handler.postDelayed(new Runnable() {
-                @Override
-                public void run() {
-
-
-                }
-            }, 2000);
+            ////handler.postDelayed(new Runnable() {
+            //    @Override
+            //    public void run() {
+//
+//
+            //    }
+        //    }, 2000);
 
 
         }
@@ -198,17 +214,17 @@ public class UnityUVCPlugin {
         }
         @Override
         public void onAttach(final UsbDevice device) {
-            //callUnity("Main Camera","fromPlugin",device.getDeviceName());
+            callUnity("USBCameraController","fromPlugin",device.getDeviceName());
             handler.postDelayed(new ConnectRunnable(device), 2000);
         }
         @Override
         public void onDettach(final UsbDevice device) {
-
+            callUnity("USBCameraController","fromPlugin",device.getDeviceName());
         }
 
         @Override
         public void onCancel(final UsbDevice device) {
-            //callUnity("Main Camera","fromPlugin","cancelled");
+            callUnity("USBCameraController","fromPlugin","cancelled");
         }
     };
 

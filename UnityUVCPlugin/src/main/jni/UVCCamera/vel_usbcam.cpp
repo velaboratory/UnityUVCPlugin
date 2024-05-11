@@ -79,6 +79,48 @@ JNIEXPORT int JNICALL Java_edu_uga_engr_vel_unityuvcplugin_UnityUVCPlugin_openCa
 
 }
 
+JNIEXPORT int JNICALL Java_edu_uga_engr_vel_unityuvcplugin_UnityUVCPlugin_setExposure(
+        JNIEnv* env, jobject thisObject,
+        jint value){
+        int r;
+        if(running){
+
+                //r = uvc_set_ae_mode(mDeviceHandle, 0/* & 0xff*/);
+                r = uvc_set_exposure_abs(mDeviceHandle, value/* & 0xff*/);
+                //r = uvc_set_gain(mDeviceHandle, gain);
+
+        }
+        return 0;
+}
+
+JNIEXPORT int JNICALL Java_edu_uga_engr_vel_unityuvcplugin_UnityUVCPlugin_setGain(
+        JNIEnv* env, jobject thisObject,
+        jint value){
+int r;
+if(running){
+
+//r = uvc_set_ae_mode(mDeviceHandle, 0/* & 0xff*/);
+//r = uvc_set_exposure_abs(mDeviceHandle, exposure/* & 0xff*/);
+r = uvc_set_gain(mDeviceHandle, value);
+
+}
+return 0;
+}
+
+JNIEXPORT int JNICALL Java_edu_uga_engr_vel_unityuvcplugin_UnityUVCPlugin_setAutoExposure(
+        JNIEnv* env, jobject thisObject,
+        jint value){
+int r;
+if(running){
+
+r = uvc_set_ae_mode(mDeviceHandle, value/* & 0xff*/);
+//r = uvc_set_exposure_abs(mDeviceHandle, exposure/* & 0xff*/);
+//r = uvc_set_gain(mDeviceHandle, gain);
+
+}
+return 0;
+}
+
 JNIEXPORT int JNICALL Java_edu_uga_engr_vel_unityuvcplugin_UnityUVCPlugin_startCamera(
                         JNIEnv* env, jobject thisObject,
                         jint width, jint height, jint min_fps, jint max_fps,
