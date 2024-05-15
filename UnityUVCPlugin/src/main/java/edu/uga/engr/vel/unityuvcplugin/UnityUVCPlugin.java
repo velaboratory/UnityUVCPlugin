@@ -43,8 +43,6 @@ public class UnityUVCPlugin {
     public static Activity _unityActivity;
 
     private byte[] frameData = new byte[0];
-    private byte[] jpegData = new byte[0];
-    private int jpegLen = 0;
     public boolean hasFrameData = false;
 
     boolean callUnity(String gameObjectName, String  function, String args){
@@ -117,10 +115,7 @@ public class UnityUVCPlugin {
         if(frameData.length  < width*height*3){
             frameData = new byte[width*height*3];
         }
-        if(jpegData.length  < width*height*3){
-            jpegData = new byte[width*height*3];
-        }
-        jpegLen = getFrame(frameData,jpegData);
+        getFrame(frameData);
 
         return frameData;
     }
@@ -138,12 +133,6 @@ public class UnityUVCPlugin {
     public int SetAutoExposure(int value){
         setAutoExposure(value);
         return 0;
-    }
-    public byte[] GetJpegData(){
-        return jpegData;
-    }
-    public int GetJpegLen(){
-        return jpegLen;
     }
 
 
@@ -164,7 +153,7 @@ public class UnityUVCPlugin {
                                            int mode,
                                            float bandwidth);
 
-    private native int getFrame(byte[] frame_bytes, byte[] jpeg_bytes);
+    private native int getFrame(byte[] frame_bytes);
 
     private final String getUSBFSName(final USBMonitor.UsbControlBlock ctrlBlock) {
         String result = null;
