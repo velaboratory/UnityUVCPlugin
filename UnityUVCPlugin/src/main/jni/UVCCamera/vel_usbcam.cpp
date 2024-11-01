@@ -11,16 +11,22 @@ uvc_device_t *mDevice;
 uvc_device_handle_t *mDeviceHandle;
 uvc_frame_desc_t *frame_desc;
 uvc_stream_ctrl_t ctrl; //set the requested format
-uvc_frame_t * frame_transfer_buffer;
+uvc_frame_t * frame_transfer_buffer = NULL;
 pthread_mutex_t lock;
 
 int running = 0;
-
+int numFrames = 0;
 void uvc_preview_frame_callback(uvc_frame_t *frame, void *vptr_args){
     pthread_mutex_lock(&lock);
-    uvc_mjpeg2rgb(frame,frame_transfer_buffer);
+    numFrames++;
+    if(numFrames > 120 && frame != NULL && frame->data != NULL) {
+        uvc_error_t result = uvc_mjpeg2rgb(frame, frame_transfer_buffer);
+        if(result == 0) {
+            running = 1;
+        }
+    }
     pthread_mutex_unlock(&lock);
-    running = 1;
+
 }
 #ifdef __cplusplus
 extern "C" {
@@ -137,6 +143,10 @@ return 4;
 if(result < 0){
 return 3;
 }
+
+    //if(frame_desc->wWidth != width) return 5;
+    //if(frame_desc->wHeight != height) return 6;
+    //if(frame_desc->bDescriptorSubtype != UVC_VS_FORMAT_MJPEG) return 7;
    //allocate the transfer buffer
    frame_transfer_buffer = uvc_allocate_frame(frame_desc->wWidth*frame_desc->wHeight*3);
 

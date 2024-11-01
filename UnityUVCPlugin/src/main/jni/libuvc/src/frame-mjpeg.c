@@ -170,7 +170,7 @@ uvc_error_t uvc_mjpeg2rgb(uvc_frame_t *in, uvc_frame_t *out) {
 	size_t lines_read;
 	// local copy
 	uint8_t *data = out->data;
-	const int out_step = out->step;
+
 
 	int num_scanlines, i;
 	lines_read = 0;
@@ -190,7 +190,7 @@ uvc_error_t uvc_mjpeg2rgb(uvc_frame_t *in, uvc_frame_t *out) {
 	out->sequence = in->sequence;
 	out->capture_time = in->capture_time;
 	out->source = in->source;
-
+	const int out_step = out->step;
 	dinfo.err = jpeg_std_error(&jerr.super);
 	jerr.super.error_exit = _error_exit;
 
