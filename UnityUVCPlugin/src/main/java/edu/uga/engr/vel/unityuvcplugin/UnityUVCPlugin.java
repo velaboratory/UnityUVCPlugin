@@ -1,16 +1,9 @@
 package edu.uga.engr.vel.unityuvcplugin;
 
 import android.app.Activity;
-import android.graphics.SurfaceTexture;
 import android.hardware.usb.UsbDevice;
-import android.opengl.GLES20;
 import android.os.Handler;
 import android.text.TextUtils;
-import android.util.Log;
-import android.view.Surface;
-import android.widget.Toast;
-
-import com.serenegiant.usb.IFrameCallback;
 import com.serenegiant.usb.USBMonitor;
 import com.serenegiant.usb.UVCCamera;
 
@@ -22,27 +15,25 @@ import java.util.concurrent.locks.ReentrantLock;
 
 public class UnityUVCPlugin {
 
-
     static {
             System.loadLibrary("jpeg-turbo1500");
             System.loadLibrary("usb100");
             System.loadLibrary("uvc");
             System.loadLibrary("UVCCamera");
     }
-
     UVCCamera cam;
-
     int width;
     int height;
     int fps;
     Handler handler = new Handler();
-
 
     Lock l = new ReentrantLock();
     private USBMonitor mUSBMonitor;
     public static Activity _unityActivity;
 
     private byte[] frameData = new byte[0];
+    private byte[] jpegData = new byte[0];
+    private int jpegDataLength = 0;
     public boolean hasFrameData = false;
 
     boolean callUnity(String gameObjectName, String  function, String args){
@@ -82,19 +73,15 @@ public class UnityUVCPlugin {
 
     public boolean CreateUSBCamera(int width, int height, int fps){
 
-
-
         this.width = width;
         this.height = height;
         this.fps = fps;
-
 
         mUSBMonitor = new USBMonitor(getActivity(), mOnDeviceConnectListener);
         mUSBMonitor.register();
         callUnity("USBCameraController","fromPlugin","Camera Created");
         return true;
     }
-
     public class ConnectRunnable implements Runnable {
         private UsbDevice device;
         public ConnectRunnable(UsbDevice device) {
@@ -118,6 +105,16 @@ public class UnityUVCPlugin {
         getFrame(frameData);
 
         return frameData;
+    }
+    public int GetJpegDataLength(){
+        return jpegDataLength;
+    }
+    public byte[] GetJpegData(){
+        if(jpegData.length < width*height*3){
+            jpegData = new byte[width*height*3]; //this should be much bigger than the maximum jpeg
+        }
+        jpegDataLength = getJpegFrame(jpegData);
+        return jpegData;
     }
 
     public int SetExposure(int value){
@@ -154,7 +151,7 @@ public class UnityUVCPlugin {
                                            float bandwidth);
 
     private native int getFrame(byte[] frame_bytes);
-
+    private native int getJpegFrame(byte[] jpeg_bytes);
     private final String getUSBFSName(final USBMonitor.UsbControlBlock ctrlBlock) {
         String result = null;
         final String name = ctrlBlock.getDeviceName();
@@ -204,7 +201,7 @@ public class UnityUVCPlugin {
         @Override
         public void onAttach(final UsbDevice device) {
             callUnity("USBCameraController","fromPlugin",device.getDeviceName());
-            handler.postDelayed(new ConnectRunnable(device), 2000);
+            handler.postDelayed(new ConnectRunnable(device), 100);
         }
         @Override
         public void onDettach(final UsbDevice device) {

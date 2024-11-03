@@ -4,27 +4,30 @@
 #include <pthread.h>
 //this is where we are going to start the thread
 
-//char *mUsbFs;
-uvc_context_t *mContext;
-//int mFd;
-uvc_device_t *mDevice;
-uvc_device_handle_t *mDeviceHandle;
-uvc_frame_desc_t *frame_desc;
-uvc_stream_ctrl_t ctrl; //set the requested format
-uvc_frame_t * frame_transfer_buffer = NULL;
-pthread_mutex_t lock;
+    uvc_context_t *mContext;
+    uvc_device_t *mDevice;
+    uvc_device_handle_t *mDeviceHandle;
+    uvc_frame_desc_t *frame_desc;
+    uvc_stream_ctrl_t ctrl;
+    uvc_frame_t * frame_transfer_buffer = NULL;
+    uvc_frame_t * jpeg_transfer_buffer = NULL;
+    pthread_mutex_t lock;
+    int running = 0;
+    int numFrames = 0;
 
-int running = 0;
-int numFrames = 0;
+
+
 void uvc_preview_frame_callback(uvc_frame_t *frame, void *vptr_args){
     pthread_mutex_lock(&lock);
     numFrames++;
-    if(numFrames > 120 && frame != NULL && frame->data != NULL) {
-        uvc_error_t result = uvc_mjpeg2rgb(frame, frame_transfer_buffer);
-        if(result == 0) {
-            running = 1;
-        }
+
+    uvc_error_t result = uvc_mjpeg2rgb(frame, frame_transfer_buffer);
+    uvc_error_t result2 = uvc_duplicate_frame(frame,jpeg_transfer_buffer);
+    memcpy(jpeg_transfer_buffer->data,frame->data,frame->actual_bytes);
+    if(result == 0 && result2 == 0) {
+        running = 1;
     }
+
     pthread_mutex_unlock(&lock);
 
 }
@@ -49,9 +52,27 @@ JNIEXPORT int JNICALL Java_edu_uga_engr_vel_unityuvcplugin_UnityUVCPlugin_getFra
                             std::memcpy(frame_bufferPtr,frame_transfer_buffer->data,frame_transfer_buffer->actual_bytes);
                             pthread_mutex_unlock(&lock);
                             return 0;
-
                         }
 
+JNIEXPORT int JNICALL Java_edu_uga_engr_vel_unityuvcplugin_UnityUVCPlugin_getJpegFrame(
+        JNIEnv* env, jobject thisObject,
+        jbyteArray frame_buffer){
+
+if(running == 0){
+return -1;
+}
+
+jsize frame_len = env->GetArrayLength(frame_buffer);
+jbyte* frame_bufferPtr = env->GetByteArrayElements(frame_buffer, NULL);
+
+
+//lock the transfer buffer, do the copy
+pthread_mutex_lock(&lock);
+std::memcpy(frame_bufferPtr,jpeg_transfer_buffer->data,jpeg_transfer_buffer->actual_bytes);
+pthread_mutex_unlock(&lock);
+return jpeg_transfer_buffer->actual_bytes;
+
+}
 JNIEXPORT int JNICALL Java_edu_uga_engr_vel_unityuvcplugin_UnityUVCPlugin_openCamera(
                         JNIEnv* env, jobject thisObject,
                         jint vid,
@@ -149,7 +170,7 @@ return 3;
     //if(frame_desc->bDescriptorSubtype != UVC_VS_FORMAT_MJPEG) return 7;
    //allocate the transfer buffer
    frame_transfer_buffer = uvc_allocate_frame(frame_desc->wWidth*frame_desc->wHeight*3);
-
+   jpeg_transfer_buffer = uvc_allocate_frame(frame_desc->wWidth*frame_desc->wHeight*3);
    pthread_mutex_init(&lock, NULL);
 
    result = uvc_start_streaming(mDeviceHandle,
