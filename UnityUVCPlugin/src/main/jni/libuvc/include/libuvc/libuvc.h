@@ -826,6 +826,10 @@ uvc_error_t uvc_any2yuyv(uvc_frame_t *in, uvc_frame_t *out);		// XXX
 uvc_error_t uvc_ensure_frame_size(uvc_frame_t *frame, size_t need_bytes); // XXX
 
 //**********************************************************************
+// added to be able to get frame description
+const uvc_format_desc_t *uvc_get_format_descs(uvc_device_handle_t* );
+
+//**********************************************************************
 // added for diagnostic
 // t_saki@serenegiant.com
 void uvc_print_format_desc_one(uvc_format_desc_t *format_descriptors, FILE *stream);
