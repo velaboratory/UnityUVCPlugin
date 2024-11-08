@@ -1541,7 +1541,7 @@ uvc_error_t uvc_stream_start_bandwidth(uvc_stream_handle_t *strmh,
 		ret = libusb_set_interface_alt_setting(strmh->devh->usb_devh,
 				altsetting->bInterfaceNumber, altsetting->bAlternateSetting);
 		if (UNLIKELY(ret != UVC_SUCCESS)) {
-			UVC_DEBUG("libusb_set_interface_alt_setting failed");
+			LOGE("libusb_set_interface_alt_setting failed");
 			goto fail;
 		}
 
@@ -1589,7 +1589,7 @@ uvc_error_t uvc_stream_start_bandwidth(uvc_stream_handle_t *strmh,
 	for (transfer_id = 0; transfer_id < LIBUVC_NUM_TRANSFER_BUFS; transfer_id++) {
 		ret = libusb_submit_transfer(strmh->transfers[transfer_id]);
 		if (UNLIKELY(ret != UVC_SUCCESS)) {
-			UVC_DEBUG("libusb_submit_transfer failed");
+			LOGE("libusb_submit_transfer failed");
 			break;
 		}
 	}
@@ -1815,7 +1815,7 @@ uvc_error_t uvc_stream_stop(uvc_stream_handle_t *strmh) {
 			if (strmh->transfers[i]) {
 				int res = libusb_cancel_transfer(strmh->transfers[i]);
 				if ((res < 0) && (res != LIBUSB_ERROR_NOT_FOUND)) {
-					UVC_DEBUG("libusb_cancel_transfer failed");
+					LOGE("libusb_cancel_transfer failed");
 					// XXX originally freed buffers and transfer here
 					// but this could lead to crash in _uvc_callback
 					// therefore we comment out these lines

@@ -1,5 +1,9 @@
 package edu.uga.engr.vel.unityuvcplugin;
 
+import static android.content.Context.RECEIVER_NOT_EXPORTED;
+import static android.hardware.usb.UsbManager.ACTION_USB_DEVICE_DETACHED;
+
+import android.content.Context;
 import android.content.BroadcastReceiver;
 import android.content.Intent;
 import android.content.IntentFilter;
@@ -69,14 +73,14 @@ public class UnityUVCPlugin {
 
 
         }
-        boolean start(int width, int height, int fps, int mode){
-            int res = startCamera(nativeIndex,width,height,1,fps,mode,1.0f);
+        int start(int width, int height, int fps, int mode, float bandwidth){
+            int res = startCamera(nativeIndex,width,height,fps,mode, bandwidth);
             if(res == 0){
                 this.width = width;
                 this.height = height;
-                return true;
+                return 0;
             }
-            return false;
+            return res;
         }
         byte[] getFrameData(){
             if(frameData.length  < width*height*3){
@@ -187,7 +191,8 @@ public class UnityUVCPlugin {
         permissionIntent = PendingIntent.getBroadcast(getActivity(), 0,
                 new Intent(ACTION_USB_PERMISSION), PendingIntent.FLAG_IMMUTABLE);
         IntentFilter filter = new IntentFilter(ACTION_USB_PERMISSION);
-        getActivity().registerReceiver(usbReceiver, filter);
+        getActivity().registerReceiver(usbReceiver, filter, RECEIVER_NOT_EXPORTED);
+
     }
 
     //this handles usb permission events
@@ -205,6 +210,17 @@ public class UnityUVCPlugin {
                     }
                     else {
                         Log.d("UVCPlugin", "permission denied for device " + device);
+                    }
+
+
+                }
+            }
+            if (ACTION_USB_DEVICE_DETACHED.equals(action)) {
+                UsbDevice device = (UsbDevice)intent.getParcelableExtra(UsbManager.EXTRA_DEVICE);
+                if (device != null) {
+                    if(openedDevices.containsKey(device.getDeviceName())){
+                        Close(device.getDeviceName());
+
                     }
                 }
             }
@@ -243,10 +259,24 @@ public class UnityUVCPlugin {
         return null;
     }
 
-    public boolean Start(String camera, int width, int height, int fps, int mode){
-        return openedDevices.get(camera).start(width,height,fps, mode);
+    public int Close(String camera){
+        UnityUVCDevice d = openedDevices.get(camera);
+        if(d!= null){
+            Log.d("asdf",""+d.nativeIndex);
+            closeCamera(d.nativeIndex);
+            d.connection.close();
+            openedDevices.remove(camera);
+            return d.nativeIndex;
+        }
+        return 0;
     }
 
+    public int Start(String camera, int width, int height, int fps, int mode, float bandwidth){
+        return openedDevices.get(camera).start(width,height,fps, mode, bandwidth);
+    }
+    public int GetFrameNumber(String camera){
+        return getFrameNumber(openedDevices.get(camera).nativeIndex);
+    }
     public byte[] GetFrameData(String camera){
         return openedDevices.get(camera).getFrameData();
 
@@ -287,11 +317,12 @@ public class UnityUVCPlugin {
     private native int startCamera(int cameraIndex,
                                    int width,
                                            int height,
-                                           int min_fps,
-                                           int max_fps,
+                                           int fps,
                                            int mode,
-                                           float bandwidth);
+                                            float bandwidth);
 
+    private native int closeCamera(int cameraIndex);
+    private native int getFrameNumber(int cameraIndex);
     private native int getFrame(int cameraIndex, byte[] frame_bytes);
     private native int getJpegFrame(int cameraIndex, byte[] jpeg_bytes);
 

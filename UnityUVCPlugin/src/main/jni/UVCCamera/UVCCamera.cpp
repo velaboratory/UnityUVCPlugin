@@ -3,14 +3,14 @@
 #include <cstring>
 #include <pthread.h>
 #include <sstream>
-//this is where we are going to start the thread
+#include <vector>
+#include <map>
 
 class UVCCamera {
 public:
     uvc_context_t *mContext;
     uvc_device_t *mDevice;
     uvc_device_handle_t *mDeviceHandle;
-    uvc_frame_desc_t *frame_desc;
     uvc_stream_ctrl_t ctrl;
     uvc_frame_t *frame_transfer_buffer = NULL;
     uvc_frame_t *jpeg_transfer_buffer = NULL;
@@ -18,29 +18,76 @@ public:
     int running = 0;
     int numFrames = 0;
     bool opened = false;
-};
 
-UVCCamera* cameras[100] = {NULL};
-int lastCameraIndex = 0;
-
-void uvc_preview_frame_callback(uvc_frame_t *frame, void *vptr_args){
-    UVCCamera * cam = (UVCCamera *)vptr_args;
-    pthread_mutex_lock(&cam->lock);
-    cam->numFrames++;
-
-    uvc_error_t result = uvc_mjpeg2rgb(frame, cam->frame_transfer_buffer);
-    uvc_error_t result2 = uvc_duplicate_frame(frame,cam->jpeg_transfer_buffer);
-    memcpy(cam->jpeg_transfer_buffer->data,frame->data,frame->actual_bytes);
-    if(result == 0 && result2 == 0) {
-        cam->running = 1;
+    UVCCamera() {
+        pthread_mutex_init(&lock, nullptr);
     }
 
-    pthread_mutex_unlock(&cam->lock);
+    ~UVCCamera() {
+        // Stop streaming if it's running
+        if (running) {
+            // Typically, you might have a function to stop streaming
+            uvc_stop_streaming(mDeviceHandle);
+            running = 0;
+        }
+        // Free the UVC frame buffers if they were allocated
+        if (frame_transfer_buffer) {
+            uvc_free_frame(frame_transfer_buffer);
+            frame_transfer_buffer = nullptr;
+        }
+
+        if (jpeg_transfer_buffer) {
+            uvc_free_frame(jpeg_transfer_buffer);
+            jpeg_transfer_buffer = nullptr;
+        }
+        // Close the UVC device handle if it was opened
+        if (mDeviceHandle) {
+            uvc_close(mDeviceHandle);
+            mDeviceHandle = nullptr;
+        }
+
+        // Exit the UVC context
+        if (mContext) {
+            uvc_exit(mContext);
+            mContext = nullptr;
+        }
+
+        // Destroy the mutex
+        pthread_mutex_destroy(&lock);
+    }
+
+
+};
+
+std::map<int, UVCCamera*> cameras;
+int nextCameraID = 0;
+
+void uvc_preview_frame_callback(uvc_frame_t *frame, void *vptr_args){
+
+    UVCCamera * cam = (UVCCamera *)vptr_args;
+    if(frame != NULL && frame->data != NULL && frame->actual_bytes > 0) {
+        pthread_mutex_lock(&cam->lock);
+        cam->numFrames++;
+
+        uvc_error_t result = uvc_mjpeg2rgb(frame, cam->frame_transfer_buffer);
+        uvc_error_t result2 = uvc_duplicate_frame(frame, cam->jpeg_transfer_buffer);
+        memcpy(cam->jpeg_transfer_buffer->data, frame->data, frame->actual_bytes);
+        if (result == 0 && result2 == 0) {
+            cam->running = 1;
+        }
+        pthread_mutex_unlock(&cam->lock);
+    }
 
 }
 #ifdef __cplusplus
 extern "C" {
 #endif
+
+JNIEXPORT int JNICALL Java_edu_uga_engr_vel_unityuvcplugin_UnityUVCPlugin_getFrameNumber(
+        JNIEnv* env, jobject thisObject, int cameraIndex){
+        UVCCamera * cam = cameras[cameraIndex];
+        return cam->numFrames;
+}
 
 JNIEXPORT int JNICALL Java_edu_uga_engr_vel_unityuvcplugin_UnityUVCPlugin_getFrame(
 JNIEnv* env, jobject thisObject, int cameraIndex,
@@ -52,7 +99,6 @@ jbyteArray frame_buffer){
 
     jsize frame_len = env->GetArrayLength(frame_buffer);
     jbyte* frame_bufferPtr = env->GetByteArrayElements(frame_buffer, NULL);
-
 
     //lock the transfer buffer, do the copy
     pthread_mutex_lock(&cam->lock);
@@ -72,18 +118,23 @@ JNIEXPORT int JNICALL Java_edu_uga_engr_vel_unityuvcplugin_UnityUVCPlugin_getJpe
     jsize frame_len = env->GetArrayLength(frame_buffer);
     jbyte* frame_bufferPtr = env->GetByteArrayElements(frame_buffer, NULL);
 
-
     //lock the transfer buffer, do the copy
     pthread_mutex_lock(&cam->lock);
-    std::memcpy(frame_bufferPtr,cam->jpeg_transfer_buffer->data,cam->jpeg_transfer_buffer->actual_bytes);
-    pthread_mutex_unlock(&cam->lock);
+    //std::memcpy(frame_bufferPtr,cam->jpeg_transfer_buffer->data,cam->jpeg_transfer_buffer->actual_bytes);
+    // Copy the actual_bytes to the first 4 bytes of frame_bufferPtr
+    std::memcpy(frame_bufferPtr, &cam->jpeg_transfer_buffer->actual_bytes, sizeof(cam->jpeg_transfer_buffer->actual_bytes));
+
+    // Copy the JPEG data starting from offset 4 in frame_bufferPtr
+    std::memcpy(frame_bufferPtr + 4, cam->jpeg_transfer_buffer->data, cam->jpeg_transfer_buffer->actual_bytes);
+
+pthread_mutex_unlock(&cam->lock);
     return cam->jpeg_transfer_buffer->actual_bytes;
 
 }
 JNIEXPORT jstring JNICALL Java_edu_uga_engr_vel_unityuvcplugin_UnityUVCPlugin_getDescriptor(JNIEnv* env, jobject thisObject, int cameraIndex){
     UVCCamera * cam = cameras[cameraIndex];
     const uvc_format_desc_t* format_desc = uvc_get_format_descs(cam->mDeviceHandle);
-    char toReturn[10000]=""; // big enough
+    std::ostringstream toReturn;
     int i=0;
     while(true){
         if(format_desc == NULL){
@@ -98,14 +149,18 @@ JNIEXPORT jstring JNICALL Java_edu_uga_engr_vel_unityuvcplugin_UnityUVCPlugin_ge
                 break;
             }
 
-
+            if(frame_desc->intervals==NULL){
+                int fps = (int)(1e7/(frame_desc->dwMinFrameInterval));
+                toReturn << (int)(format_desc->bDescriptorSubtype)<<","<<frame_desc->wWidth<<","<<frame_desc->wHeight<<","<<fps;
+                break;
+            }
             uint32_t* interval = frame_desc->intervals;
             while(*interval){
                 if(i++>0){
-                    strcat(toReturn,"\n"); //add a newline
+                    toReturn << "\n";
                 }
                 int fps = (int)(1e7/(*interval));
-                sprintf(toReturn,"%s%d,%d,%d,%d",toReturn,(int)(format_desc->bDescriptorSubtype),frame_desc->wWidth,frame_desc->wHeight,fps);
+                toReturn << (int)(format_desc->bDescriptorSubtype)<<","<<frame_desc->wWidth<<","<<frame_desc->wHeight<<","<<fps;
                 interval++;
             }
 
@@ -114,7 +169,16 @@ JNIEXPORT jstring JNICALL Java_edu_uga_engr_vel_unityuvcplugin_UnityUVCPlugin_ge
         format_desc = format_desc->next;
     }
 
-    return env->NewStringUTF(toReturn);
+    return env->NewStringUTF(toReturn.str().c_str());
+}
+
+JNIEXPORT int JNICALL Java_edu_uga_engr_vel_unityuvcplugin_UnityUVCPlugin_closeCamera(
+        JNIEnv* env, jobject thisObject, int cameraIndex){
+    UVCCamera * cam = cameras[cameraIndex];
+    delete cam;
+    cameras.erase(cameraIndex);
+    return cameraIndex;
+
 }
 
 JNIEXPORT int JNICALL Java_edu_uga_engr_vel_unityuvcplugin_UnityUVCPlugin_openCamera(
@@ -152,7 +216,7 @@ JNIEXPORT int JNICALL Java_edu_uga_engr_vel_unityuvcplugin_UnityUVCPlugin_openCa
     result = uvc_open(cam->mDevice, &cam->mDeviceHandle);
 
     if(result == 0){
-        int cameraIndex = lastCameraIndex++;
+        int cameraIndex = nextCameraID++;
         cameras[cameraIndex] = cam;
         cam->opened = true;
         return cameraIndex;
@@ -206,33 +270,35 @@ return 0;
 
 JNIEXPORT int JNICALL Java_edu_uga_engr_vel_unityuvcplugin_UnityUVCPlugin_startCamera(
                         JNIEnv* env, jobject thisObject, int cameraIndex,
-                        jint width, jint height, jint min_fps, jint max_fps,
+                        jint width, jint height, jint fps,
                         jint mode, jfloat bandwidth){
     UVCCamera * cam = cameras[cameraIndex];
     uvc_error_t result;
 
-    result = uvc_get_stream_ctrl_format_size_fps(cam->mDeviceHandle,
+    result = uvc_get_stream_ctrl_format_size(cam->mDeviceHandle,
                                                  &cam->ctrl,
                                                  (uvc_frame_format)mode,
-                                                 width, height, bandwidth, max_fps);
+                                                 width, height, fps);
     if(result < 0){
-        return 4;
+        return result;
     }
-    result = uvc_get_frame_desc(cam->mDeviceHandle,
-                                &cam->ctrl,
-                                &cam->frame_desc);  //get the actual format
-    if(result < 0){
-        return 3;
-    }
+    //result = uvc_get_frame_desc(cam->mDeviceHandle,
+    //                            &cam->ctrl,
+    //                            &cam->frame_desc);  //get the actual format
+    //cam->frame_desc = uvc_find_frame_desc(cam->mDeviceHandle, cam->ctrl->bFormatIndex, cam->ctrl->bFrameIndex);
+    //if(cam->frame_desc == NULL){
+    //    return -10+result;
+    //}
 
 
-    cam->frame_transfer_buffer = uvc_allocate_frame(cam->frame_desc->wWidth*cam->frame_desc->wHeight*3);
-    cam->jpeg_transfer_buffer = uvc_allocate_frame(cam->frame_desc->wWidth*cam->frame_desc->wHeight*3);
-    pthread_mutex_init(&cam->lock, NULL);
 
-   result = uvc_start_streaming(cam->mDeviceHandle,&cam->ctrl,uvc_preview_frame_callback,(void *) cam, 0);
+    cam->frame_transfer_buffer = uvc_allocate_frame(width*height*3);
+    cam->jpeg_transfer_buffer = uvc_allocate_frame(width*height*3);
+
+
+   result = uvc_start_streaming_bandwidth(cam->mDeviceHandle,&cam->ctrl,uvc_preview_frame_callback,(void *) cam, bandwidth, 0);
    if(result < 0){
-      return 2;
+      return -20+result;
    }
    return 0;
 }

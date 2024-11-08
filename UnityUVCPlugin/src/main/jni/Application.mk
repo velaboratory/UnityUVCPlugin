@@ -25,7 +25,8 @@
 #*/
 
 
-APP_PLATFORM := android-27
+APP_PLATFORM := android-33
 APP_ABI := arm64-v8a
 #APP_OPTIM := debug
 APP_OPTIM := release
+APP_STL := c++_static # added to use C++

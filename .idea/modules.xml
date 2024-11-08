@@ -8,6 +8,7 @@
       <module fileurl="file://$PROJECT_DIR$/.idea/modules/UnityUVCPlugin/UVCCamera.UnityUVCPlugin.main.iml" filepath="$PROJECT_DIR$/.idea/modules/UnityUVCPlugin/UVCCamera.UnityUVCPlugin.main.iml" />
       <module fileurl="file://$PROJECT_DIR$/.idea/modules/UnityUVCPlugin/UVCCamera.UnityUVCPlugin.unitTest.iml" filepath="$PROJECT_DIR$/.idea/modules/UnityUVCPlugin/UVCCamera.UnityUVCPlugin.unitTest.iml" />
       <module fileurl="file://$PROJECT_DIR$/.idea/modules/common-2.12.4/UVCCamera.common-2.12.4.iml" filepath="$PROJECT_DIR$/.idea/modules/common-2.12.4/UVCCamera.common-2.12.4.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/modules/UnityUVCPlugin/git_repo.UVCCamera.UnityUVCPlugin.androidTest.iml" filepath="$PROJECT_DIR$/.idea/modules/UnityUVCPlugin/git_repo.UVCCamera.UnityUVCPlugin.androidTest.iml" />
     </modules>
   </component>
 </project>

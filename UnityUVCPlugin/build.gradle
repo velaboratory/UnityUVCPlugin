@@ -8,11 +8,11 @@ apply plugin: 'com.kezong.fat-aar'
 
 android {
     namespace 'edu.uga.engr.vel.unityuvcplugin'
-    compileSdk 31
+    compileSdk 33
 
     defaultConfig {
         minSdk 31
-        targetSdk 31
+        targetSdk 33
 
         testInstrumentationRunner "android.support.test.runner.AndroidJUnitRunner"
         consumerProguardFiles "consumer-rules.pro"
