@@ -1,180 +1,87 @@
 UnityUVCPlugin
 =========
 
-Based on the awesome libuvc integration of [saki4510t](https://github.com/saki4510t/UVCCamera).  It is also inspired by the [USB Camera for Android](https://assetstore.unity.com/packages/tools/integration/usb-camera-for-unity-android-151744) Unity asset. A special thanks to [Fat-AAR](https://github.com/kezong/fat-aar-android) for making it possible to embed dependencies...otherwise trying to build cobble together libraries for a plugin is horrible.
+This is a library to bring UVC Camera data into a Unity3D Android Project.  It supports multiple cameras and can operate at very fast speeds because the library does little more than to give you the data (RGB or JPEG) in a C# buffer to play with.  Note, the JPEG data has the length as the first 4 bytes, so that you can avoid making copies.  It should support most UVC cameras.  
 
-This is a library to bring UVC Camera data into a Unity3D Android Project.  Previous approaches have used GLES 2.0 to directly write a native texture and use it in Unity.  While this is a good approach, it is more convenient to work with the data in Unity & OpenCV Unity.  So, this focuses on how to simply get the frame data. It uses a similar approach of GLES 2.0 as a surface texture for the camera, retrieving the data from the surface texture and copying it to a Unity3D buffer for further processing. 
+The library is based on the awesome libuvc integration of [saki4510t](https://github.com/saki4510t/UVCCamera).  It is also inspired by [USB Camera for Android](https://assetstore.unity.com/packages/tools/integration/usb-camera-for-unity-android-151744) Unity asset, which is almost certainly a better choice than this library if it works for you, as it does far more.  The only reason this library exists is to support newer versions of android and have more control over the raw UVC streams.  
 
-There are probably better ways to do this, e.g., passing the buffer pointer directly from Unity to avoid that copy, or providing the option for passing a native texture from Unity (though this has the same problem of forcing Unity and the Plugin to use the same native rendering for this to work). 
+To use in Unity you must:
+* Put the built plugin into Plugins/Android
+* Make sure your manifest includes usb host and camera permissions
+* Target Android 32 or higher (it may work at lower, but it hasn't been tested)
 
-Note that this is a minimally viable product at the moment.  A few things are still necessary (permissions, manifest updates), as will be described in the Unity counterpart to this library, when I get around to making it.  
+For stability at very high frame rates you may want to
+* Use a thread (make sure you AndroidJNI.attach...) so you aren't tied to the game loop
+* Disable incremental garbage collection (this caused bugs for me)
 
-Old Stuff below.  I built directly on UVCCamera.   
-
-UVCCamera
-=========
-
-library and sample to access to UVC web camera on non-rooted Android device
-
-Copyright (c) 2014-2017 saki t_saki@serenegiant.com
-
- Licensed under the Apache License, Version 2.0 (the "License");
- you may not use this file except in compliance with the License.
- You may obtain a copy of the License at
-
-     http://www.apache.org/licenses/LICENSE-2.0
-
- Unless required by applicable law or agreed to in writing, software
- distributed under the License is distributed on an "AS IS" BASIS,
- WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- See the License for the specific language governing permissions and
- limitations under the License.
-
-All files in the folder are under this Apache License, Version 2.0.
-Files in the jni/libjpeg, jni/libusb and jin/libuvc folders may have a different license,
-see the respective files.
-
-How to compile library  
-=========
-The Gradle build system will build the entire project, including the NDK parts. If you want to build with Gradle build system,
-
-1. make directory on your favorite place (this directory is parent directory of `UVCCamera` project).
-2. change directory into the directory.
-3. clone this repository with `git  clone https://github.com/saki4510t/UVCCamera.git`
-4. change directory into `UVCCamera` directory with `cd UVCCamera`
-5. build library with all sample projects using `gradle build`
-
-It will takes several minutes to build. Now you can see apks in each `{sample project}/build/outputs/apks` directory.  
-Or if you want to install and try all sample projects on your device, run `gradle installDebug`.  
-
-Note: Just make sure that `local.properties` contains the paths for `sdk.dir` and `ndk.dir`. Or you can set them as enviroment variables of you shell. On some system, you may need add `JAVA_HOME` envairoment valiable that points to JDK directory.  
-
-If you want to use Android Studio(unfortunately NDK supporting on Android Studio is very poor though),
-1. make directory on your favorite place (this directory is parent directory of `UVCCamera` project).
-2. change directory into the directory.
-3. clone this repository with `git  clone https://github.com/saki4510t/UVCCamera.git`
-4. start Android Studio and open the cloned repository using `Open an existing Android Studio project`
-5. Android Studio raise some errors but just ignore now. Android Studio generate `local.properties` file. Please open `local.properties` and add `ndk.dir` key to the end of the file. The contents of the file looks like this.
+Useful Manifest info
+```xml
+<uses-permission android:name="android.permission.CAMERA" />
+<uses-feature android:name="android.hardware.camera" />
+<uses-feature android:name="android.hardware.usb.host" />
 ```
-sdk.dir={path to Android SDK on your storage}
-ndk.dir={path to Android SDK on your storage}
+Simplest Example Script (attach to quad)
+```csharp
+using System;
+using System.Collections;
+using System.Collections.Generic;
+using UnityEngine;
+
+[RequireComponent(typeof(MeshRenderer))]
+public class SimpleExample : MonoBehaviour
+{
+	AndroidJavaObject plugin;
+	void Start()
+	{
+		WebCamDevice[] devices = WebCamTexture.devices; //this useless line of code causes Unity to include camera permissions
+		plugin = new AndroidJavaObject("edu.uga.engr.vel.unityuvcplugin.UnityUVCPlugin"); //declare plugin in the class
+		plugin.Call("Init");
+		var cameras = plugin.Call<string[]>("GetUSBDevices"); //all UVC devices available
+															  //plugin.Call<string>("GetUSBDeviceInfo", cameras[0]); //more info for the camera (optional)
+		var cameraName = cameras[0];
+		plugin.Call("ObtainPermission", cameraName); //get permission first
+		StartCoroutine(RunCamera(cameraName));
+	}
+	IEnumerator RunCamera(string cameraName)
+	{
+		while (!plugin.Call<bool>("hasPermission", cameraName))
+		{
+			yield return null;
+		}
+		//we have permission, so we open the camera, which returns all resolutions/fps
+		var infos = plugin.Call<string[]>("Open", cameraName); //each line has the format (TYPE,RES_X,RES_Y,FPS).  Type will (probably) be 4 (YUV) or 6 (MJPEG).  Currently, the library only supports MJPEG, so filter out the 4s.
+															   //now split up infos
+		int good_index = -1;
+		for(int i=0;i<infos.Length; i++) {
+			if (infos[i].StartsWith("6"))
+			{
+				good_index = i;
+				break;
+			}
+		}
+		if(good_index >= 0)
+		{
+			var info = infos[0].Split(",");
+			var width = int.Parse(info[1]);
+			var height = int.Parse(info[2]);
+			var fps = int.Parse(info[3]);
+			var bandwidth = 1.0f; //note if you start more than 2 cameras, you should reduce this.  You may not get the framerate you want, but it won't crash
+			var res = plugin.Call<int>("Start", cameraName, width, height, fps, 2, bandwidth);  //at this point, the camera should streaming
+			if (res == 0)
+			{
+				var cameraTexture = new Texture2D(width, height, TextureFormat.RGB24, false, true);
+				GetComponent<Renderer>().material.mainTexture = cameraTexture;
+				while (true)
+				{
+					var frameData = plugin.Call<sbyte[]>("GetFrameData", cameraName);
+					cameraTexture.LoadRawTextureData((byte[])(Array)frameData);
+					cameraTexture.Apply(false, false);
+					yield return null;
+				}
+			}
+		}
+	}
+}
 ```
-Please replace actual path to SDK and NDK on your storage.  
-Of course you can make `local.properties` by manually instead of using automatically generated ones by Android Studio.
-6. Synchronize project
-7. execute `Make project` from `Build` menu.
 
-If you want to use build-in VCS on Android Studio, use `Check out project from Version Control` from `https://github.com/saki4510t/UVCCamera.git`. After cloning, Android Studio ask you open the project but don't open now. Instead open the project using `Open an existing Android Studio project`. Other procedures are same as above.
 
-If you still need to use Eclipse or if you don't want to use Gradle with some reason, you can build suing `ndk-build` command.
-
-1. make directory on your favorite place.
-2. change directory into the directory.
-3. clone this repository with `git  clone https://github.com/saki4510t/UVCCamera.git`
-4. change directory into `{UVCCamera}/libuvccamera/build/src/main/jni` directory.
-5. run `ndk-build`
-6. resulted shared libraries are available under `{UVCCamera}/libuvccamera/build/src/main/libs` directory and copy them into your project with directories by manually.
-7. copy files under `{UVCCamera}/libuvccamera/build/src/main/java` into your project source directory by manually.
-
-How to use
-=========
-Please see sample project and/or our web site(but sorry web site is Japanese only).
-These sample projects are IntelliJ projects, as is the library.
-This library works on at least Android 3.1 or later(API >= 12), but Android 4.0(API >= 14)
-or later is better. USB host function must be required.
-If you want to try on Android 3.1, you will need some modification(need to remove
-setPreviewTexture method in UVCCamera.java etc.), but we have not confirm whether the sample
-project run on Android 3.1 yet.
-Some sample projects need API>=18 though.
-
-### 2014/07/25
-Add some modification to the library and new sample project named "USBCameraTest2".
-This new sample project demonstrate how to capture movie using frame data from
-UVC camera with MediaCodec and MediaMuxer.
-New sample requires at least Android 4.3(API>=18).
-This limitation does not come from the library itself but from the limitation of
-MediaMuxer and MediaCodec#createInputSurface.
-
-### 2014/09/01
-Add new sample project named `USBCameraTest3`
-This new sample project demonstrate how to capture audio and movie simultaneously
-using frame data from UVC camera and internal mic with MediaCodec and MediaMuxer.
-This new sample includes still image capturing as png file.(you can easily change to
-save as jpeg) This sample also requires at least Android 4.3(API>=18).
-This limitation does not come from the library itself but from the limitation of
-MediaMuxer and MediaCodec#createInputSurface.
-
-### 2014/11/16
-Add new sample project named `USBCameraTest4`
-This new sample project mainly demonstrate how to use offscreen rendering
-and record movie without any display.
-The communication with camera execute as Service and continue working
-even if you stop app. If you stop camera communication, click "stop service" button.
-
-### 2014/12/17
-Add bulk transfer mode and update sample projects.
-
-### 2015/01/12
-Add wiki page, [HowTo](https://github.com/saki4510t/UVCCamera/wiki/howto "HowTo")
-
-### 2015/01/22
-Add method to adjust preview resolution and frame data mode.
-
-### 2015/02/12
-Add IFrameCallback interface to get frame data as ByteArray
-and new sample project `USBCameraTest5` to demonstrate how to use the callback method.
-
-### 2015/02/18
-Add `libUVCCamera` as a library project(source code is almost same as previous release except Android.mk).
-All files and directories under `library` directory is deprecated.
-
-### 2015/05/25
-libraryProject branch merged to master.
-
-### 2015/05/30
-Fixed the issue that DeviceFilter class could not work well when providing venderID, productID etc.
-
-### 2015/06/03
-Add new sample project named `USBCameraTest6`
-This new sample project mainly demonstrate how to show video images on two TextureView simultaneously, side by side.
-
-### 2015/06/10
-Fixed the issue of pixel format is wrong when NV21 mode on calling IFrameCallback#onFrame(U and V plane was swapped) and added YUV420SP mode.
-
-### 2015/06/11
-Improve the issue of `USBCameraTest4` that fails to connect/disconnect.
-
-### 2015/07/19
-Add new methods to get/set camera features like brightness, contrast etc.  
-Add new method to get supported resolution from camera as json format.  
-
-### 2015/08/17
-Add new sample project `USBCameraTest7` to demonstrate how to use two camera at the same time.  
-
-### 2015/09/20
-Fixed the issue that building native libraries fail on Windows.
-
-### 2015/10/30
-Merge pull request(add status and button callback). Thanks Alexey Pelykh.
-
-### 2015/12/16
-Add feature so that user can request fps range from Java code when negotiating with camera. Actual resulted fps depends on each UVC camera. Currently there is no way to get resulted fps(will add on future).
-
-### 2016/03/01
-update minoru001 branch, experimentaly support streo camera.
-
-### 2016/06/18
-replace libjpeg-turbo 1.4.0 with 1.5.0
-
-### 2016/11/17
-apply bandwidth factor setting of usbcameratest7 on master branch
-
-### 2016/11/21
-Now this repository supports Android N(7.x) and dynamic permission model of Android N and later.
-
-### 2017/01/16
-Add new sample app `usbCameraTest8` to show how to set/get uvc control like brightness 
-
-### 2017/04/17
-Add new sample app on [OpenCVwithUVC](https://github.com/saki4510t/OpenCVwithUVC.git) repository.
-This shows the way to pass video images from UVC into `cv::Mat` (after optional applying video effect by OpenGL|ES) and execute image processing by `OpenCV`.
