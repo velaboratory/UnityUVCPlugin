@@ -18,7 +18,8 @@ public:
     int running = 0;
     int numFrames = 0;
     bool opened = false;
-
+    bool wantsDecode = false;
+    bool wantsJpeg = false;
     UVCCamera() {
         pthread_mutex_init(&lock, nullptr);
     }
@@ -67,14 +68,20 @@ void uvc_preview_frame_callback(uvc_frame_t *frame, void *vptr_args){
     UVCCamera * cam = (UVCCamera *)vptr_args;
     if(frame != NULL && frame->data != NULL && frame->actual_bytes > 0) {
         pthread_mutex_lock(&cam->lock);
-        cam->numFrames++;
 
-        uvc_error_t result = uvc_mjpeg2rgb(frame, cam->frame_transfer_buffer);
-        uvc_error_t result2 = uvc_duplicate_frame(frame, cam->jpeg_transfer_buffer);
-        memcpy(cam->jpeg_transfer_buffer->data, frame->data, frame->actual_bytes);
-        if (result == 0 && result2 == 0) {
-            cam->running = 1;
+
+        //we should only do these things if the application wants them
+
+        if(cam->wantsDecode) {
+            uvc_error_t result = uvc_mjpeg2rgb(frame, cam->frame_transfer_buffer);
         }
+        if(cam->wantsJpeg) {
+            uvc_error_t result2 = uvc_duplicate_frame(frame, cam->jpeg_transfer_buffer);
+            memcpy(cam->jpeg_transfer_buffer->data, frame->data, frame->actual_bytes);
+        }
+        cam->numFrames++;
+        cam->running = 1;
+
         pthread_mutex_unlock(&cam->lock);
     }
 
@@ -192,6 +199,7 @@ JNIEXPORT int JNICALL Java_edu_uga_engr_vel_unityuvcplugin_UnityUVCPlugin_openCa
 
     uvc_error_t result;
     UVCCamera *cam = new UVCCamera();
+
     const char *usbfs = env->GetStringUTFChars(usbfs_str,
                                                JNI_FALSE);
     result = uvc_init2(&cam->mContext,
@@ -271,8 +279,10 @@ return 0;
 JNIEXPORT int JNICALL Java_edu_uga_engr_vel_unityuvcplugin_UnityUVCPlugin_startCamera(
                         JNIEnv* env, jobject thisObject, int cameraIndex,
                         jint width, jint height, jint fps,
-                        jint mode, jfloat bandwidth){
+                        jint mode, jfloat bandwidth, jboolean wantsDecode, jboolean wantsJpeg){
     UVCCamera * cam = cameras[cameraIndex];
+    cam->wantsDecode = wantsDecode;
+    cam->wantsJpeg = wantsJpeg;
     uvc_error_t result;
 
     result = uvc_get_stream_ctrl_format_size(cam->mDeviceHandle,

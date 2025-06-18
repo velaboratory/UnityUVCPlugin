@@ -73,8 +73,8 @@ public class UnityUVCPlugin {
 
 
         }
-        int start(int width, int height, int fps, int mode, float bandwidth){
-            int res = startCamera(nativeIndex,width,height,fps,mode, bandwidth);
+        int start(int width, int height, int fps, int mode, float bandwidth, boolean wantsDecode, boolean wantsJpeg){
+            int res = startCamera(nativeIndex,width,height,fps,mode, bandwidth, wantsDecode, wantsJpeg);
             if(res == 0){
                 this.width = width;
                 this.height = height;
@@ -111,7 +111,7 @@ public class UnityUVCPlugin {
     }
 
     PendingIntent permissionIntent;
-    public static Activity _unityActivity;
+    public static Activity _activity;
     public HashMap<String,UnityUVCDevice> openedDevices = new HashMap<String,UnityUVCDevice>();
     boolean callUnity(String gameObjectName, String  function, String args){
         try{
@@ -131,22 +131,7 @@ public class UnityUVCPlugin {
         return false;
     }
 
-    Activity getActivity(){
-        if(null == _unityActivity){
-            try{
-                Class<?> classtype = Class.forName("com.unity3d.player.UnityPlayer");
-                Activity activity = (Activity) classtype.getDeclaredField("currentActivity").get(classtype);
-                _unityActivity = activity;
-            }catch (ClassNotFoundException e){
-                e.printStackTrace();
-            }catch (IllegalAccessException e){
-                e.printStackTrace();
-            }catch (NoSuchFieldException e){
-                e.printStackTrace();
-            }
-        }
-        return _unityActivity;
-    }
+
 
     String NullDefault(String v){
         if(v == null){return "NULL";}
@@ -154,13 +139,13 @@ public class UnityUVCPlugin {
     }
 
     public String[] GetUSBDevices(){ //this sets things up, gets the currently connected usb devices
-        UsbManager manager = (UsbManager) getActivity().getSystemService(Context.USB_SERVICE);
+        UsbManager manager = (UsbManager) _activity.getSystemService(Context.USB_SERVICE);
         HashMap<String, UsbDevice> deviceList = manager.getDeviceList();
         return deviceList.keySet().toArray(new String[0]);
     }
 
     public String GetUSBDeviceInfo(String deviceID){
-        UsbManager manager = (UsbManager) getActivity().getSystemService(Context.USB_SERVICE);
+        UsbManager manager = (UsbManager) _activity.getSystemService(Context.USB_SERVICE);
         HashMap<String, UsbDevice> deviceList = manager.getDeviceList();
 
         UsbDevice device = deviceList.get(deviceID);
@@ -186,12 +171,13 @@ public class UnityUVCPlugin {
     }
 
     //this is necessary to listen for usb permission events
-    public void Init(){
-        UsbManager usbManager = (UsbManager) getActivity().getSystemService(Context.USB_SERVICE);
-        permissionIntent = PendingIntent.getBroadcast(getActivity(), 0,
+    public void Init(Activity activity){
+        _activity = activity;
+        UsbManager usbManager = (UsbManager) activity.getSystemService(Context.USB_SERVICE);
+        permissionIntent = PendingIntent.getBroadcast(activity, 0,
                 new Intent(ACTION_USB_PERMISSION), PendingIntent.FLAG_IMMUTABLE);
         IntentFilter filter = new IntentFilter(ACTION_USB_PERMISSION);
-        getActivity().registerReceiver(usbReceiver, filter, RECEIVER_NOT_EXPORTED);
+        activity.registerReceiver(usbReceiver, filter, RECEIVER_NOT_EXPORTED);
 
     }
 
@@ -227,14 +213,14 @@ public class UnityUVCPlugin {
         }
     };
     public void ObtainPermission(String camera){
-        UsbManager manager = (UsbManager) getActivity().getSystemService(Context.USB_SERVICE);
+        UsbManager manager = (UsbManager) _activity.getSystemService(Context.USB_SERVICE);
         HashMap<String, UsbDevice> deviceList = manager.getDeviceList();
         if(deviceList.containsKey(camera)){
             manager.requestPermission(deviceList.get(camera),permissionIntent);
         }
     }
     public boolean hasPermission(String camera){
-        UsbManager manager = (UsbManager) getActivity().getSystemService(Context.USB_SERVICE);
+        UsbManager manager = (UsbManager) _activity.getSystemService(Context.USB_SERVICE);
         HashMap<String, UsbDevice> deviceList = manager.getDeviceList();
         if(deviceList.containsKey(camera)){
             return manager.hasPermission((deviceList.get(camera)));
@@ -243,7 +229,7 @@ public class UnityUVCPlugin {
     }
 
     public String[] Open(String camera){
-        UsbManager manager = (UsbManager) getActivity().getSystemService(Context.USB_SERVICE);
+        UsbManager manager = (UsbManager) _activity.getSystemService(Context.USB_SERVICE);
         HashMap<String, UsbDevice> deviceList = manager.getDeviceList();
         ArrayList<String> descriptorList = new ArrayList<String>();
         if(deviceList.containsKey(camera)){
@@ -271,8 +257,8 @@ public class UnityUVCPlugin {
         return 0;
     }
 
-    public int Start(String camera, int width, int height, int fps, int mode, float bandwidth){
-        return openedDevices.get(camera).start(width,height,fps, mode, bandwidth);
+    public int Start(String camera, int width, int height, int fps, int mode, float bandwidth, boolean wantsDecode, boolean wantsJpeg){
+        return openedDevices.get(camera).start(width,height,fps, mode, bandwidth, wantsDecode, wantsJpeg);
     }
     public int GetFrameNumber(String camera){
         return getFrameNumber(openedDevices.get(camera).nativeIndex);
@@ -319,7 +305,7 @@ public class UnityUVCPlugin {
                                            int height,
                                            int fps,
                                            int mode,
-                                            float bandwidth);
+                                            float bandwidth, boolean wantsDecode, boolean wantsJpeg);
 
     private native int closeCamera(int cameraIndex);
     private native int getFrameNumber(int cameraIndex);
